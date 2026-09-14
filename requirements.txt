@@ -1,0 +1,45 @@
+# CHAGent (ACSAC'26, paper 186) — Python dependencies
+#
+# PINNED to the authors' evaluation environment: Python 3.12.13 on Linux with a
+# CUDA 12.8 capable NVIDIA driver. These are the exact versions that produced the
+# reference logs under claims/*/eval_logs/. Installing newer majors (e.g.
+# transformers 5.x, which changes the default dtype used by from_pretrained) can
+# alter generation behaviour and therefore the reported metrics.
+#
+# NOTE:
+#   * `torch` is installed separately by install.sh so the correct CUDA build is
+#     selected; the pin below is the version install.sh installs (the PyPI wheel
+#     for 2.8.0 bundles the CUDA 12.8 runtime, as used by the authors).
+#   * `flash-attn` is NOT listed here: no script in this artifact requires it,
+#     and it must be built with --no-build-isolation against an already-installed
+#     torch. install.sh skips it unless FLASH_ATTN=1 is set.
+
+# --- Deep learning / model stack ---
+torch==2.8.0                  # installed by install.sh (PyPI wheel bundles CUDA 12.8 on Linux)
+transformers==4.56.2          # also the version recorded in the published checkpoints' config.json
+tokenizers==0.22.0
+trl==0.25.1                   # SFTConfig / SFTTrainer (train_generator.py)
+peft==0.17.1                  # LoRA fine-tuning + PeftModel.from_pretrained
+accelerate==1.10.1            # required by the transformers Trainer
+datasets==4.0.0               # HF Hub dataset loading (generator training data)
+bitsandbytes==0.47.0          # "adamw_8bit" optimizer used by train_generator.py
+huggingface-hub==0.34.4       # model downloads + the `hf` CLI used by download_checkpoints.sh
+safetensors==0.6.2
+
+# --- Retrieval (RAG) stack ---
+langchain-community==0.3.29   # FAISS vectorstore + HuggingFaceEmbeddings wrappers
+langchain-core==0.3.75
+sentence-transformers==5.1.0  # backs HuggingFaceEmbeddings (mxbai-embed-large-v1)
+faiss-cpu==1.12.0             # FAISS similarity search over the entity indexes
+
+# --- Metrics / evaluation ---
+evaluate==0.4.5               # accuracy / f1 / precision / recall metrics
+scikit-learn==1.7.1           # classification_report, MCC, confusion_matrix, train_test_split
+scipy==1.16.1                 # pulled in by scikit-learn / sentence-transformers
+numpy==2.3.2                  # NOTE: the authors' env uses numpy 2.x (not <2.0)
+
+# --- Data / IO / CLI utilities ---
+pandas==2.3.2
+click==8.2.1
+tqdm==4.67.1
+pyyaml==6.0.2

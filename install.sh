@@ -1,0 +1,181 @@
+#!/usr/bin/env bash
+#
+# install.sh — Installs all dependencies and prepares the CHAGent artifact
+#              (ACSAC'26, paper 186) for execution.
+#
+# Usage:
+#   ./install.sh                 # create ./.venv and install everything
+#   NO_VENV=1 ./install.sh       # install into the current environment
+#   TORCH_CUDA=cu118 ./install.sh# pin a specific CUDA wheel (Linux; e.g. older driver)
+#   CPU_ONLY=1 ./install.sh      # install CPU-only torch (no GPU; eval will be slow/unsupported)
+#   FLASH_ATTN=1 ./install.sh    # additionally build flash-attn (optional; see step 5 —
+#                                # no script in this artifact requires it)
+#
+# By default torch is installed from PyPI, whose Linux wheels already bundle a
+# CUDA runtime (and macOS gets the native build) — no --index-url needed.
+#
+# Requirements assumed to be present on the host:
+#   * Python 3.12 (tested with 3.12.13). Select a specific interpreter with
+#     PYTHON_BIN, e.g.  PYTHON_BIN=python3.12 ./install.sh
+#   * A CUDA-capable GPU + driver for training/inference (see infrastructure/)
+#   * A HuggingFace account with access to meta-llama/Meta-Llama-3-8B-Instruct
+#     (the generator base model is gated). Run `huggingface-cli login` or export
+#     HF_TOKEN before executing the artifact — see README.
+#
+set -euo pipefail
+
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$HERE"
+
+# Pick an interpreter. Honor PYTHON_BIN if set; otherwise prefer a newer
+# python3.x that is >= 3.9 AND has the _ctypes module (skips ancient system
+# python3 like 3.6, and pyenv builds missing libffi). Note: this only sees
+# interpreters on the SCRIPT's PATH — if your Python 3.12 is exposed via a
+# shell alias/function or an un-exported pyenv shim, pass it explicitly, e.g.
+#   PYTHON_BIN="$(which python3)" ./install.sh
+if [ -z "${PYTHON_BIN:-}" ]; then
+    for _cand in python3.12 python3.11 python3.10 python3.9 python3 python; do
+        if command -v "$_cand" >/dev/null 2>&1 \
+           && "$_cand" -c 'import sys,ctypes; sys.exit(0 if sys.version_info[:2]>=(3,9) else 1)' >/dev/null 2>&1; then
+            PYTHON_BIN="$_cand"; break
+        fi
+    done
+fi
+if [ -z "${PYTHON_BIN:-}" ]; then
+    echo "ERROR: no suitable Python found (need >= 3.9 with the _ctypes module)."
+    echo "       Tried python3.12 ... python3. Activate/point to Python 3.12"
+    echo "       (tested 3.12.13), e.g.  PYTHON_BIN=\"\$(which python3)\" ./install.sh"
+    exit 1
+fi
+
+echo "=========================================================="
+echo " CHAGent artifact installer"
+echo " Working directory : $HERE"
+echo " Python            : $($PYTHON_BIN --version 2>&1)  ($(command -v "$PYTHON_BIN"))"
+echo "=========================================================="
+
+# ---------------------------------------------------------------------------
+# 1. Virtual environment
+# ---------------------------------------------------------------------------
+if [ "${NO_VENV:-0}" != "1" ]; then
+    # If a .venv already exists but was built with an unsuitable Python
+    # (e.g. an old system python3.6 from a previous run), recreate it — reusing
+    # it would install packages under the wrong interpreter.
+    if [ -d ".venv" ] && ! .venv/bin/python -c 'import sys,ctypes; sys.exit(0 if sys.version_info[:2]>=(3,9) else 1)' >/dev/null 2>&1; then
+        echo "[1/5] Existing ./.venv uses an unsuitable Python — recreating it ..."
+        rm -rf .venv
+    fi
+    if [ ! -d ".venv" ]; then
+        echo "[1/5] Creating virtual environment at ./.venv (from $PYTHON_BIN) ..."
+        "$PYTHON_BIN" -m venv .venv
+    else
+        echo "[1/5] Reusing existing ./.venv ($(.venv/bin/python --version 2>&1)) ..."
+    fi
+    # shellcheck disable=SC1091
+    source .venv/bin/activate
+    PYTHON_BIN="python"
+else
+    echo "[1/5] NO_VENV=1 set — installing into current environment."
+fi
+
+# ---------------------------------------------------------------------------
+# 1b. Sanity check: the interpreter must provide the _ctypes stdlib module.
+#     pyenv builds Python WITHOUT it when libffi headers are missing at build
+#     time, which then breaks pip/torch/huggingface_hub with a cryptic
+#     "ModuleNotFoundError: No module named '_ctypes'". Fail early and clearly.
+# ---------------------------------------------------------------------------
+if ! "$PYTHON_BIN" -c "import ctypes" >/dev/null 2>&1; then
+    echo
+    echo "ERROR: this Python lacks the _ctypes module (built without libffi)."
+    echo "       $("$PYTHON_BIN" -c 'import sys; print(sys.executable)' 2>/dev/null) cannot run torch/huggingface."
+    echo "       Use a Python where  python -c 'import ctypes'  works, e.g. (no sudo):"
+    echo "         conda create -y -n chagent python=3.12 && conda activate chagent"
+    echo "         rm -rf .venv && PYTHON_BIN=\"\$(command -v python)\" ./install.sh"
+    echo "       or 'uv python install 3.12' (its builds include _ctypes),"
+    echo "       or module-load a system Python. With sudo: apt-get install -y libffi-dev"
+    echo "       then rebuild the interpreter (e.g. pyenv install --force <version>)."
+    exit 1
+fi
+
+# ---------------------------------------------------------------------------
+# 2. Base tooling
+# ---------------------------------------------------------------------------
+echo "[2/5] Upgrading pip / setuptools / wheel ..."
+"$PYTHON_BIN" -m pip install --upgrade pip setuptools wheel
+
+# Make downloads resilient on flaky / proxied networks (torch is a ~500 MB+
+# wheel). These env vars apply to every pip invocation below.
+export PIP_RETRIES="${PIP_RETRIES:-10}"
+export PIP_DEFAULT_TIMEOUT="${PIP_DEFAULT_TIMEOUT:-120}"
+# --resume-retries exists only on newer pip; add it if supported.
+PIP_RESUME=()
+if "$PYTHON_BIN" -m pip download --help 2>/dev/null | grep -q -- '--resume-retries'; then
+    PIP_RESUME=(--resume-retries 10)
+fi
+
+# ---------------------------------------------------------------------------
+# 3. PyTorch (pinned to 2.8.0 — the tested version; installed first so
+#    flash-attn can build against it).
+#    Default: install from PyPI, whose wheels already bundle a CUDA runtime on
+#    Linux (and give the native build on macOS) — no CUDA toolkit needed.
+#    Overrides:
+#      CPU_ONLY=1        -> force the CPU-only build
+#      TORCH_CUDA=cu128  -> pull torch + nvidia-* wheels from download.pytorch.org
+#                           instead of pythonhosted (useful on networks that
+#                           throttle PyPI's CDN). Pick a tag that hosts 2.8.0 AND
+#                           matches your NVIDIA driver: cu126 or cu128 (NOT cu124,
+#                           which tops out at torch 2.6). Linux only.
+# ---------------------------------------------------------------------------
+if [ "${CPU_ONLY:-0}" = "1" ]; then
+    echo "[3/5] Installing CPU-only torch (GPU features will not work) ..."
+    "$PYTHON_BIN" -m pip install "${PIP_RESUME[@]}" "torch==2.8.0" \
+        --index-url "https://download.pytorch.org/whl/cpu"
+elif [ -n "${TORCH_CUDA:-}" ]; then
+    echo "[3/5] Installing torch (pinned CUDA build: ${TORCH_CUDA}) ..."
+    "$PYTHON_BIN" -m pip install "${PIP_RESUME[@]}" "torch==2.8.0" \
+        --index-url "https://download.pytorch.org/whl/${TORCH_CUDA}"
+else
+    echo "[3/5] Installing torch from PyPI (bundles CUDA on Linux) ..."
+    "$PYTHON_BIN" -m pip install "${PIP_RESUME[@]}" "torch==2.8.0"
+fi
+
+# ---------------------------------------------------------------------------
+# 4. Python dependencies
+# ---------------------------------------------------------------------------
+echo "[4/5] Installing project dependencies from requirements.txt ..."
+"$PYTHON_BIN" -m pip install "${PIP_RESUME[@]}" -r requirements.txt
+
+# ---------------------------------------------------------------------------
+# 5. flash-attention (OPTIONAL, off by default)
+#    No script in this artifact requires flash-attn: the evaluation and training
+#    scripts load the models with the default attention implementation. Building
+#    it needs nvcc + a CUDA toolkit and takes a long time, so it is skipped
+#    unless FLASH_ATTN=1 is set. Non-fatal either way.
+# ---------------------------------------------------------------------------
+if [ "${FLASH_ATTN:-0}" != "1" ]; then
+    echo "[5/5] Skipping flash-attn (not required; set FLASH_ATTN=1 to build it)."
+elif [ "${CPU_ONLY:-0}" = "1" ]; then
+    echo "[5/5] Skipping flash-attn (CPU_ONLY set)."
+else
+    echo "[5/5] Building flash-attn (requires nvcc + CUDA toolkit; this is slow) ..."
+    if "$PYTHON_BIN" -m pip install "flash-attn==2.8.3" --no-build-isolation; then
+        echo "      flash-attn installed."
+    else
+        echo "      WARNING: flash-attn failed to build. This is harmless — no script"
+        echo "               in this artifact requires it; the DSARCP evaluation"
+        echo "               (eval_chagent.py) runs without it."
+    fi
+fi
+
+echo
+echo "=========================================================="
+echo " Installation complete."
+if [ "${NO_VENV:-0}" != "1" ]; then
+    echo " Activate the environment with:  source .venv/bin/activate"
+fi
+echo
+echo " Next steps:"
+echo "   1. Authenticate with HuggingFace (gated LLaMa-3 base model):"
+echo "        huggingface-cli login       # or: export HF_TOKEN=<your token>"
+echo "   2. See README for how to train modules / run the evaluation."
+echo "=========================================================="

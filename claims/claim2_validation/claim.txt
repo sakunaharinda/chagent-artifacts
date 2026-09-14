@@ -1,0 +1,49 @@
+CLAIM 2 — Access Control Policy Verification
+============================================
+
+Claim
+-----
+CHAGent's verifier reliably decides whether a generated policy correctly represents its NLACP, both as a binary correct/incorrect decision and as a fine-grained 12-class error categorization (correct + 11 error types). This verifier is what drives the iterative refinement in Claim 1.
+
+Maps to
+-------
+Paper Table 6.
+
+What run.sh does
+----------------
+Evaluates the PROVIDED verifier checkpoint (trained with seed 2) on the held-out
+verification test set (artifact/data/verification/utest.csv) using
+artifact/validation/eval_test.py (no training performed).
+
+Metrics reported
+----------------
+  - Binary classification report (negative = "correct" [label 11],
+    positive = "any error"): precision / recall / f1 / support.
+  - Matthews Correlation Coefficient (MCC) for the binary task.
+  - 12-class classification report over label ids 0..11
+    (see ID2AUGS: allow_deny, csub, cact, cres, ccond, cpur, msub, mres,
+     mcond, mpur, mrules, correct).
+
+Seed coverage
+-------------
+The paper's verifier result is a mean over three training seeds (0, 1, 2); the
+per-seed evaluation reports for all three are included as reference in
+eval_logs/ver_{0,1,2}.txt. Only the seed-2 CHECKPOINT is published (each verifier
+checkpoint is ~5 GB), so run.sh exercises the verifier on seed 2 and prints that
+seed's report (deterministic eval). The seed 0/1 evaluation reports are included
+as reference in eval_logs/ver_{0,1}.txt. Mean/SD across the three seeds is
+aggregated EXTERNALLY.
+
+Prerequisites
+-------------
+- venv active (../install.sh); HuggingFace access configured (facebook/bart-large).
+- Verifier checkpoint present at:
+      artifact/validation/checkpoints/verification/checkpoint
+  (eval_test.py loads checkpoints/verification/checkpoint relative to
+  artifact/validation/.)
+  This is the seed-2 checkpoint. ../download_checkpoints.sh fetches it from
+  https://huggingface.co/chagent-artifacts/chagent-verification (the "2/checkpoint"
+  directory) and renames "2" -> "verification" so it lands at the path above.
+
+Note: eval_test.py has no command-line arguments; the test-set path and the
+checkpoint path are fixed inside the script.

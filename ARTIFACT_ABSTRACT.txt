@@ -1,0 +1,10 @@
+Artifact Submission Abstract — CHAGent (ACSAC'26, Paper #186)
+Requested badge: Functional
+
+This artifact, submitted for the Functional badge, consists of software and data implementing the complete CHAGent pipeline. The software is provided as Python source code (no binaries) and includes an NLACP identification module, an access-control policy generation module with FAISS-based entity retrieval and iterative refinement, and a policy validator that classifies a generated policy as correct or as one of 11 error categories. The artifact includes the test data and pretrained model checkpoints required to exercise the evaluation experiments described in the paper: NLACP identification (Table 3), access-control policy generation in the DSARCP setting (Tables 4 and 5), policy validation (Table 6), and component ablations isolating retrieval, retrieval-based post-processing, and iterative refinement (Figures 3 and 4). Each experiment has a self-contained runner under claims/, together with a claim.txt mapping the experiment to the corresponding paper table or figure, expected outputs, and reference logs for comparison.
+
+The test data is bundled in the repository as CSV files under artifact/data/. It contains per-fold document data for the t2p, acre, ibm, collected, cyber, and overall sets, including identification test files, generation evaluation files, and validator data. Pretrained model checkpoints (approximately 20 GB in total) are distributed through Hugging Face repositories (chagent-artifacts/chagent-generation, chagent-verification, and chagent-identification) and can be downloaded and placed using the included download_checkpoints.sh script.
+
+The artifact runs on Linux with a single NVIDIA CUDA-capable GPU and Python 3.12 (tested with Python 3.12.13). The included install.sh creates a virtual environment and installs the dependencies pinned in requirements.txt, including PyTorch, Transformers, PEFT, TRL, LangChain, FAISS, and related libraries. Running the policy generator additionally requires a Hugging Face account with access to the gated base model meta-llama/Meta-Llama-3-8B-Instruct.
+
+Archival DOI: <Zenodo DOI to be added>

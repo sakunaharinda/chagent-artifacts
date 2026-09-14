@@ -1,0 +1,61 @@
+Expected output — Claim 1 (DSARCP generation, end-to-end CHAGent)
+================================================================
+
+Reference logs
+--------------
+The exact stdout we obtained for each run is included (trimmed to start at the
+"Results (SARCP)" banner) under:
+    claims/claim1_generation/eval_logs/<dataset>_act_<seed>.txt
+Each corresponds to the full CHAGent configuration (retrieval + post-processing +
+iterative refinement, i.e. eval_chagent.py ... --refine). A new run's trailing
+output should be close to the corresponding reference result; small variations across 
+hardware/software environments are expected.
+
+Output format (what eval_chagent.py prints)
+-------------------------------------------
+ ========================= Results (SARCP) =================================
+ Mode / Refinement=True / Retrieval=True / Post-process=True / Time elapsed
+ Precision / Recall / F1
+ Component-wise results: {subject, action, resource, purpose, condition -> tp/fp/fn/p/r/f1}
+ ========================= Results (ACR Generation) =========================
+ Precision / Recall / F1
+ ============================================================================
+
+Reference values (from the included logs)
+-----------------------------------------
+Per-seed F1 for the full CHAGent pipeline. MEAN and SD across seeds {2,3,4} are
+computed EXTERNALLY from these per-seed values.
+
+  dataset     seed    SARCP F1     ACR-Gen F1
+  ---------   ----    --------     ----------
+  t2p         2       0.9349       0.9263
+  t2p         3       0.9317       0.9171
+  t2p         4       0.9293       0.9315
+  acre        2       0.7349       0.6946
+  acre        3       0.7364       0.6997
+  acre        4       0.7419       0.7063
+  ibm         2       0.8496       0.8129
+  ibm         3       0.8041       0.7987
+  ibm         4       0.8779       0.8580
+  collected   2       0.8476       0.7862
+  collected   3       0.8720       0.8418
+  collected   4       0.8803       0.8256
+  cyber       2       0.6935       0.6993
+  cyber       3       0.6944       0.6646
+  cyber       4       0.6798       0.6688
+  overall     2       0.8353       0.8162
+  overall     3       0.8476       0.8113
+  overall     4       0.8279       0.8033
+
+Coverage note
+-------------
+The generation checkpoints cover seeds 2, 3, and 4, and all three seeds are
+present for every dataset in these reference logs (18 runs).
+
+Interpretation
+--------------
+A successful reproduction matches the SARCP F1 and ACR-Generation F1 above for
+the corresponding (dataset, seed) within an expected run-to-run variation (greedy
+decoding; minor differences across GPU/driver/library versions are expected).
+Generations are also written to <RESULT_DIR>/<mode>/generations_refined.json and
+per-example refinement traces to <RESULT_DIR>/<mode>/refinements/.

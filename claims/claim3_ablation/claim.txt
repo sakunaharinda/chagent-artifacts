@@ -1,0 +1,39 @@
+CLAIM 3 — Ablation: contribution of retrieval, post-processing, and refinement
+==============================================================================
+
+Claim
+-----
+The ablation evaluates the contribution of entity retrieval, retrieval-based post-processing, and validator-guided iterative refinement to CHAGent's generation performance using the metrics reported in Figures 3 and 4.
+
+Maps to
+-------
+Paper Figures 3 and 4.
+
+What run.sh does
+----------------
+Runs artifact/generation/evaluation/eval_chagent.py in four configurations on
+the SAME provided generator checkpoints (no training):
+
+  (A) No retrieval and no refinement                  : --no_retrieve
+  (B) Retrieval, no post-process, and no refinement   : --no_update
+  (C) Retrieval + post-process, and no refinement    : (no flags; retrieval + update on)
+  (D) Full CHAGent                                    : --refine   (retrieval + update + refinement)
+
+On start, run.sh asks which scope to run:
+  [D] Default    — all datasets, seed 3, all 4 configs (~10 hours on an A100).
+                   Matches the seed-3 logs in eval_logs/ (config D matches
+                   Claim 1's seed-3 logs).
+  [E] Everything — all datasets, seeds 2, 3, 4, all 4 configs (~30 hours); the
+                   full three-seed ablation reported in the paper.
+Pressing Enter selects the Default. The prompt is skipped when SEEDS (or
+DATASETS) is preset in the environment; a non-interactive shell falls back to
+the Default. Each cell runs 4 configs and is dominated by config D (the full
+pipeline): roughly ibm ~40 min, cyber/collected ~50 min, t2p ~1.9 h, overall
+~2.1 h, acre ~3.6 h per seed (~10 h for all datasets at one seed).
+
+Metrics reported (per config, per dataset, per seed)
+----------------------------------------------------
+  Results (SARCP):          Precision, Recall, F1 (+ component-wise F1).
+  Results (ACR Generation): Precision, Recall, F1.
+
+

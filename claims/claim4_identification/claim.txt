@@ -1,0 +1,50 @@
+CLAIM 4 — NLACP Identification
+==============================
+
+Claim
+-----
+CHAGent's identification module accurately distinguishes Natural Language Access Control Requirements (NLACPs) from non-NLACP sentences across the evaluation document folds (t2p, acre, ibm, collected, cyber, and the combined "overall" set).
+
+Maps to
+-------
+Paper Table 3.
+
+What run.sh does
+----------------
+Evaluates the PROVIDED identification checkpoint (seed 0) for each document fold
+using artifact/identification/evaluate_classification.py. One checkpoint per
+fold (seed 0) is expected at:
+    artifact/identification/checkpoints/<fold>_0/checkpoint
+(No training is performed; this exercises the identification module and prints
+its test-set metrics.)
+Note: evaluate_classification.py loads checkpoints/<fold>_<seed>/checkpoint
+relative to artifact/identification/ (seed defaults to 0).
+
+Metrics reported (per fold)
+---------------------------
+accuracy, precision, recall, F1  (printed as a Python dict). The seed-0 output
+for every fold is included as reference in eval_logs/<fold>_0.txt, and the
+numbers are tabulated in expected/expected_output.txt.
+
+Seed coverage
+-------------
+A single seed (0) is shipped for identification; these checkpoints let you
+exercise the module and observe its per-fold behaviour on that seed. The paper
+reports the mean/SD over multiple seeds, aggregated externally.
+
+Prerequisites
+-------------
+- ../install.sh has been run and the venv is active.
+- HuggingFace access configured (HF_TOKEN or `huggingface-cli login`) so
+  bert-base-uncased can be downloaded.
+- Identification checkpoints present at artifact/identification/checkpoints/<fold>_0/checkpoint.
+
+  These are published (seed 0, per fold) at
+  https://huggingface.co/chagent-artifacts/chagent-identification (Hub layout
+  <fold>/0/checkpoint). ../download_checkpoints.sh downloads them and renames
+  <fold>/0 -> <fold>_0 so the final path is artifact/identification/checkpoints/<fold>_0/checkpoint.
+  If a fold's checkpoint is missing, run.sh points to download_checkpoints.sh
+  and skips that fold rather than evaluating a non-existent model.
+
+See expected/expected_output.txt for the output format and the per-fold reference
+numbers to compare against.

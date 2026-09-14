@@ -1,0 +1,34 @@
+Expected output — Claim 4 (NLACP identification)
+================================================
+
+Reference logs
+--------------
+The exact stdout for each fold's evaluation (seed 0) is included under:
+    claims/claim4_identification/eval_logs/<fold>_0.txt
+A new run of run.sh should match the metric dict in the corresponding log.
+
+Output format (what evaluate_classification.py prints)
+------------------------------------------------------
+ =============================== Evaluating ================================
+
+Test path: ../data/document_folds/<fold>.csv
+
+{'accuracy': <A>, 'f1': <F1>, 'precision': <P>, 'recall': <R>}
+
+ ===========================================================================
+
+Reference values (seed 0, from the included logs)
+--------------------------------------------------
+  fold        accuracy   precision   recall    F1
+  ---------   --------   ---------   ------    ------
+  t2p         0.9332     0.9646      0.9589    0.9618
+  acre        0.8559     0.8610      0.9606    0.9081
+  collected   0.8929     0.9008      0.9732    0.9356
+  cyber       0.8095     0.8019      0.8173    0.8095
+  ibm         0.8000     0.7846      0.8947    0.8361
+  overall     0.9325     0.9014      0.9925    0.9447
+
+Interpretation
+--------------
+A single seed (0) is published per fold; the paper's mean/SD is aggregated externally — see the Seed coverage note in
+claim.txt.
