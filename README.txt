@@ -84,7 +84,7 @@ Run ./download_checkpoints.sh first (see above), then evaluate any module:
 
   # 1. Identification (evaluate a fold)
   cd artifact/identification
-  python evaluate_classification.py --mode=collected --seed=0
+  python evaluate_classification.py --mode=t2p --seed=0
 
   # 2. Verifier (evaluate on the held-out test set)
   cd artifact/validation
@@ -92,7 +92,7 @@ Run ./download_checkpoints.sh first (see above), then evaluate any module:
 
   # 3. End-to-end CHAGent evaluation (DSARCP, with refinement)
   cd artifact/generation/evaluation
-  python eval_chagent.py --mode=cyber --result_dir="results/sarcp" --k=3 --seed=2 --refine
+  python eval_chagent.py --mode=t2p --result_dir="results/sarcp" --k=3 --seed=2 --refine
 
 The self-contained runners under claims/ wrap these — see "RUNNING THE
 EXPERIMENTS" below.
@@ -114,9 +114,9 @@ How to run a claim:
   First `source .venv/bin/activate` and run ./download_checkpoints.sh (once).
   Then invoke a runner with bash — it can be launched from ANY directory (each
   script locates the repo and cd's into the right module itself):
-      bash claims/claim4_identification/run.sh
+      bash claims/claim1_generation/run.sh
   Environment overrides work from anywhere too, e.g.:
-      DATASETS=ibm SEEDS=3 bash claims/claim1_generation/run.sh
+      DATASETS=t2p SEEDS=3 bash claims/claim1_generation/run.sh
   (Use bash, not sh — the runners rely on bash features.)
 
 Checkpoints (run ./download_checkpoints.sh first — see above):
