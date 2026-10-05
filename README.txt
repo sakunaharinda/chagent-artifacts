@@ -141,6 +141,8 @@ Note on seed coverage (single-seed checkpoints for two modules):
   the per-seed evaluation logs for the validator's seeds 0/1/2 are included under
   claims/claim2_validation/eval_logs/.
 
+Limitations are listed in use.txt.
+
 NOTE ON SECRETS
 ---------------
 Do NOT hardcode HuggingFace tokens in scripts. Pass them via the HF_TOKEN
