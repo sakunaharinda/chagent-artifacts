@@ -7,4 +7,4 @@ The test data is bundled in the repository as CSV files under artifact/data/. It
 
 The artifact runs on Linux with a single NVIDIA CUDA-capable GPU and Python 3.12 (tested with Python 3.12.13). The included install.sh creates a virtual environment and installs the dependencies pinned in requirements.txt, including PyTorch, Transformers, PEFT, TRL, LangChain, FAISS, and related libraries. Running the policy generator additionally requires a Hugging Face account with access to the gated base model meta-llama/Meta-Llama-3-8B-Instruct.
 
-Archival DOI: 10.5281/zenodo.23276061
+Archival DOI: https://doi.org/10.5281/zenodo.23276060
